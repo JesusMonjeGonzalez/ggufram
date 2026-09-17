@@ -185,7 +185,10 @@ def model_ram_profile(path: Path) -> RamProfile | None:
     if k_len is None or v_len is None:
         embedding = _as_int(kv.get(f"{arch}.embedding_length"))
         if embedding and head_count:
-            k_len = v_len = embedding // head_count
+            if k_len is None:
+                k_len = embedding // head_count
+            if v_len is None:
+                v_len = embedding // head_count
     if k_len is None or v_len is None:
         return None
 

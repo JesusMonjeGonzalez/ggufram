@@ -1,6 +1,8 @@
 import struct
 from pathlib import Path
 
+import pytest
+
 from ggufram import model_ram_profile, read_metadata
 
 
@@ -75,6 +77,28 @@ def test_profile_extracts_kv_geometry(tmp_path):
     assert profile.v_len == 128
     assert profile.context_length == 131072
     assert profile.file_size == p.stat().st_size
+
+
+@pytest.mark.parametrize(
+    ("k_len", "v_len", "expected"),
+    [(256, None, (256, 128)), (None, 256, (128, 256)), (None, None, (128, 128))],
+)
+def test_profile_infers_only_missing_head_dimensions(tmp_path, k_len, v_len, expected):
+    kvs = [
+        _kv_str("general.architecture", "llama"),
+        _kv_u32("llama.block_count", 4),
+        _kv_u32("llama.attention.head_count", 16),
+        _kv_u32("llama.embedding_length", 2048),
+    ]
+    if k_len is not None:
+        kvs.append(_kv_u32("llama.attention.key_length", k_len))
+    if v_len is not None:
+        kvs.append(_kv_u32("llama.attention.value_length", v_len))
+
+    profile = model_ram_profile(_gguf_file(tmp_path, kvs))
+
+    assert profile is not None
+    assert (profile.k_len, profile.v_len) == expected
 
 
 def test_profile_per_layer_head_count_array(tmp_path):
